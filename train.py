@@ -227,24 +227,24 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         iter_end.record()
 
         with torch.no_grad():
-            if iteration % 1000 == 0:
-                viewspace_abs_max = viewspace_point_tensor.detach().abs().max().item()
-                viewspace_nonzero = torch.count_nonzero(viewspace_point_tensor.detach()).item()
-                if viewspace_point_tensor.grad is None:
-                    grad_abs_mean = 0.0
-                    grad_abs_max = 0.0
-                else:
-                    grad_tensor = viewspace_point_tensor.grad.detach()
-                    grad_abs_mean = grad_tensor.abs().mean().item()
-                    grad_abs_max = grad_tensor.abs().max().item()
-                print(
-                    f"\n[ITER {iteration}] viewspace_point_tensor: "
-                    f"value_abs_max={viewspace_abs_max:.6e}, "
-                    f"value_nonzero={viewspace_nonzero}, "
-                    f"grad_abs_mean={grad_abs_mean:.6e}, "
-                    f"grad_abs_max={grad_abs_max:.6e}, "
-                    f"visible={visibility_filter.numel()}"
-                )
+            # if iteration % 1000 == 0:
+            #     viewspace_abs_max = viewspace_point_tensor.detach().abs().max().item()
+            #     viewspace_nonzero = torch.count_nonzero(viewspace_point_tensor.detach()).item()
+            #     if viewspace_point_tensor.grad is None:
+            #         grad_abs_mean = 0.0
+            #         grad_abs_max = 0.0
+            #     else:
+            #         grad_tensor = viewspace_point_tensor.grad.detach()
+            #         grad_abs_mean = grad_tensor.abs().mean().item()
+            #         grad_abs_max = grad_tensor.abs().max().item()
+            #     print(
+            #         f"\n[ITER {iteration}] viewspace_point_tensor: "
+            #         f"value_abs_max={viewspace_abs_max:.6e}, "
+            #         f"value_nonzero={viewspace_nonzero}, "
+            #         f"grad_abs_mean={grad_abs_mean:.6e}, "
+            #         f"grad_abs_max={grad_abs_max:.6e}, "
+            #         f"visible={visibility_filter.numel()}"
+            #     )
 
             # Progress bar
             ema_loss_for_log = 0.4 * loss.item() + 0.6 * ema_loss_for_log
@@ -340,6 +340,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                         radii,
                         importance_score=importance_score,
                         importance_score_threshold=opt.mv_importance_threshold,
+                        iteration=iteration,
+                        max_iterations=opt.iterations,
                     )
 
                 if iteration % 500 == 0:
