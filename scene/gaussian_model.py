@@ -528,12 +528,27 @@ class GaussianModel:
 
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation, new_tmp_radii)
 
-    def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size, radii, importance_score=None, importance_score_threshold=0.0):
+    def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size, radii, importance_score=None, importance_score_threshold=0.0, iteration=None, max_iterations=None):
         grads = self.xyz_gradient_accum / self.denom
         grads[grads.isnan()] = 0.0
 
         grads_abs = self.xyz_gradient_accum_abs / self.denom
         grads_abs[grads_abs.isnan()] = 0.0
+
+        # if iteration is not None:
+        #     progress = min(iteration / max_iterations, 1.0)
+            
+        #     # 1. 动态 max_grad: 随着训练进行，稍微提高门槛，减少后期无意义的分裂
+        #     # 例如从 0.0002 线性增加到 0.0004
+        #     current_max_grad = max_grad * (1.0 + progress) 
+            
+        #     # 2. 动态 min_opacity: 后期更积极地清理低透明度点 (浮空物)
+        #     # 例如从 0.005 逐渐增加到 0.02
+        #     current_min_opacity = min_opacity + (0.02 - min_opacity) * progress
+        # else:
+        current_max_grad = max_grad
+        current_min_opacity = min_opacity
+        # ===============================
 
         consistency = (grads + 1e-8) / (grads_abs + 1e-8)
         weight = 0.8 + 25 * torch.pow(1 - consistency,15)
@@ -542,10 +557,13 @@ class GaussianModel:
             metric_mask = importance_score >= importance_score_threshold
 
         self.tmp_radii = radii
-        self.densify_and_clone(grads / weight, max_grad, extent, metric_mask=metric_mask)
-        self.densify_and_split(grads * weight, max_grad, extent, metric_mask=metric_mask)
+        # 使用动态 current_max_grad
+        self.densify_and_clone(grads / weight, current_max_grad, extent, metric_mask=metric_mask)
+        self.densify_and_split(grads * weight, current_max_grad, extent, metric_mask=metric_mask)
 
-        prune_mask = (self.get_opacity < min_opacity).squeeze()
+        # 使用动态 current_min_opacity
+        prune_mask = (self.get_opacity < current_min_opacity).squeeze()
+
         if max_screen_size:
             big_points_vs = self.max_radii2D > max_screen_size
             big_points_ws = self.get_scaling.max(dim=1).values > 0.1 * extent
@@ -561,4 +579,3 @@ class GaussianModel:
         self.xyz_gradient_accum_abs[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter, 2:], dim=-1, keepdim=True)
         self.dir[update_filter] += viewspace_point_tensor.grad[update_filter,:2]
         self.denom[update_filter] += 1
-
